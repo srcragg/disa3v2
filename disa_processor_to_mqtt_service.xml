@@ -1,0 +1,10 @@
+<service>
+    <id>disa_processor_to_mqtt_service</id>
+    <name>disa_processor_to_mqtt Serice</name>
+    <description>Runs disa_processor_to_xml as a service</description>
+    <executable>cmd</executable>
+    <arguments>/c "C:\python312\python "C:\Users\Steve Cragg\documents\disa3v2\disa_processor_to_mqtt.py""</arguments>
+    <workingdirectory>C:\Users\Steve Cragg\Documents\disa3v2</workingdirectory>
+    <logmode>rotate</logmode>
+    <onfailure action = "restart" delay = "15 sec"/>
+</service>

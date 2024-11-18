@@ -1,0 +1,10 @@
+<service>
+    <id>streamlit_app_v1_service</id>
+    <name>Streamlit Service</name>
+    <description>Runs streamlit as a service</description>
+    <executable>cmd</executable>
+    <arguments>/c "C:\python312\python -m streamlit run "C:\Users\Steve Cragg\Documents\disa3v2\streamlit_app_v1.py --server.port=8502 --server.headless true""</arguments>
+    <workingdirectory>C:\Users\Steve Cragg\Documents\disa3v2</workingdirectory>
+    <logmode>rotate</logmode>
+    <onfailure action = "restart" delay = "10 sec"/>
+</service>
