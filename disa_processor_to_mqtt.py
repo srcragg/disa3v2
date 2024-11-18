@@ -13,7 +13,7 @@ from yaml import CLoader as Loader
 from typing import Dict
 
 # %%
-config_path  = "config.yaml"
+config_path  = "../config.yaml"
 old_config_mtime = 0  # mtime is time file is modified
 
 @dataclass
@@ -78,7 +78,8 @@ def get_data_from_db(con, start_time, end_time = None):
     try:
         cur = con.cursor()
     except:
-        con = sqlite3.connect(f"{config.db_name}")
+        path = f"../{config.db_name}"
+        con = sqlite3.connect(path)
     if end_time == None:
         data = pd.read_sql(f'select * from counter where id > {start_time}', con)
     else:
@@ -122,14 +123,17 @@ client.reconnect_delay_set(min_delay=1, max_delay=120)
 client.connect('10.0.1.207', 1883, 60)
 client.loop_start()
 
-client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', 'online', retain=True, qos = 2)
+
+current_time = datetime.datetime.now()
+message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
 
 
 running_toggle = 0
 old_total_cycles_shift = 0
 old_total_cycles = 0
 
-con = sqlite3.connect(f"{config.db_name}")
+con = sqlite3.connect(f"../{config.db_name}")
 
 
 # %%
@@ -159,6 +163,7 @@ while True:
     processed_data = process_data(data)
     if total_cycles != old_total_cycles:
         message_to_send = {k:v for k, v in processed_data.items()}
+        message_to_send['timestamp'] = current_time.timestamp()
         client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/daily_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
         old_total_cycles = total_cycles
 
@@ -167,14 +172,14 @@ while True:
         #status_holder.markdown('# :red[NOT RUNNING]')
         if running_toggle == 1:
             running_toggle = 0
-            message = json.dumps({'timestamp':current_time.timestamp(),'running':'false'})
+            message = json.dumps({'timestamp':current_time.timestamp(),'running':'false', 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
             client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
 
     else:
         #status_holder.markdown('# :green[RUNNING]')
         if running_toggle == 0: 
             running_toggle = 1
-            message = json.dumps({'timestamp':current_time.timestamp(),'running':'true'})
+            message = json.dumps({'timestamp':current_time.timestamp(),'running':'true','timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
             client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
 
 
@@ -194,7 +199,9 @@ while True:
         message_to_send["shift_start_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].strftime('%d-%m-%y %H:%M:%S'),
         message_to_send["shift_end_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].strftime('%d-%m-%y %H:%M:%S'),
         message_to_send["shift_start"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].timestamp(),
-        message_to_send["shift_end"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].timestamp()
+        message_to_send["shift_end"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].timestamp(),
+        message_to_send['timestamp'] = current_time.timestamp()
+        message_to_send['timestamp_human'] =  current_time.strftime("%d-%m-%y %H:%M:%S")
         client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/shift_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
         old_total_cycles_shift = total_cycles_shift
  

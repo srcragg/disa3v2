@@ -3,8 +3,8 @@
     <name>disa_processor_to_mqtt Serice</name>
     <description>Runs disa_processor_to_xml as a service</description>
     <executable>cmd</executable>
-    <arguments>/c "C:\python312\python "C:\Users\Steve Cragg\documents\disa3v2\disa_processor_to_mqtt.py""</arguments>
-    <workingdirectory>C:\Users\Steve Cragg\Documents\disa3v2</workingdirectory>
+    <arguments>/c ""C:\Users\Steve Cragg\Documents\disa3v2\processors\venv\Scripts\python" "C:\Users\Steve Cragg\documents\disa3v2\processors\disa_processor_to_mqtt.py""</arguments>
+    <workingdirectory>C:\Users\Steve Cragg\Documents\disa3v2\processors</workingdirectory>
     <logmode>rotate</logmode>
     <onfailure action = "restart" delay = "15 sec"/>
 </service>

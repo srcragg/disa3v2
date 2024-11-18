@@ -2,4 +2,5 @@
 app.log
 config.yaml
 disa3v1.db
-temp
+temp*
+__pycache__

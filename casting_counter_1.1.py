@@ -14,16 +14,13 @@ from dataclasses import dataclass, field
 import os
 import logging
 
-# Set up logging
-logging.basicConfig(filename='app.log', 
-                    level=logging.DEBUG, 
-                    format='%(asctime)s - %(levelname)s - %(message)s',
-                    filemode='a')
-logging.debug('log started')
-
-# Get config file - will be updated on change in main loop
-config_path = "config.yaml"
-old_config_mtime = 0
+# This script is designed to run on a remote server with a networked IP camera supporting RTSP. 
+# It is designed to count the number of parts that pass a certain point on a conveyor belt. 
+# The script uses optical flow to measure the speed of the conveyor belt and a colour segmentation algorithm to detect the presence of parts. 
+# The script uses a configuration file to set the parameters for the optical flow and colour segmentation algorithms. 
+# The script also uses a SQLite database to store the count data and a MQTT broker to send the count data to a remote server. 
+# The script is designed to run continuously and to be restarted automatically if it crashes. 
+# The script also has a setup mode that allows the user to adjust the parameters of the optical flow and colour segmentation algorithms in real time.
 
 def get_config(config_path, old_config_mtime, config):
     '''Checks if config file has been updated and updates config instance of config_default class'''
@@ -109,18 +106,73 @@ def optical_flow(prvs, next, mask,
     return bgr, mask, flow_x, flow_y, flow_conv
 
 def image_directory_cleanup():
-    # Add your image directory cleanup code here
-    pass
+        try:
+            logging.info('Trying image directory cleanup')
+            os.system("image_clean_up.py")
+            config.image_dir_cleanup = True
+            logging.info('Image directory cleanup ran')
+        except:
+            logging.info('Image directory cleanup failed')
+            pass
 
 def initialise_mqtt():
-    # Initialize the MQTT client here
-    client = mqtt.Client()
-    # Add your MQTT initialization code here
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_{config.device_name}_v1', clean_session = False)
+    client.username_pw_set(username = 'broker1', password='tdfcyclecounter')
+    client.will_set(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'offline', retain=True, qos = 2)
+    client.reconnect_delay_set(min_delay=1, max_delay=120)
+    client.connect('10.0.1.207', 1883, 60)
     return client
 
 
-def main(old_config_mtime, config, prev_gray, frame_reader, mask, client, signal, sample_rate, ave_sample_rate, record_flow_x, record_flow_conv, record_hsv_1_mag, record_hsv_2_mag, ave_sample_rates, perf_record, hsv_thresh, conv_deque, box_deque, time_toggle, hsv_sum, hsv_sum_1, hsv_sum_2, brightness_sum_1, brightness_sum_2, last_part_1_time, t1_old, font):
+def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = "config.yaml"):
 
+    client = initialise_mqtt()
+    client.loop_start()
+    current_time = datetime.now()
+    message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+    client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
+
+    data_old = 0 # holder to trigger save of performance data when in setup mode
+
+    signal = deque([0]*10) # will be a 10 frame window
+    sample_rate = deque([0]*100,100) # average sample rate
+    ave_sample_rate = 10 # initial default value (driven, not driving)
+
+    # record raw data, juat use for debugging - initialise here
+    record_flow_x = []
+    record_flow_conv = []
+    record_hsv_1_mag = []
+    record_hsv_2_mag = []
+    ave_sample_rates = []
+    perf_record = [] # list of dicts to store processed results
+
+    # cutoff threshold for colour level
+    hsv_thresh = 10
+
+    conv_deque = deque([0]*5, 5) # conveyor velocity measured over 5 frames
+    box_deque = deque([0]*30, 30) # box velocity measured over 20 frames (so that box made flag is carried into database write)
+    time_toggle = 0
+    hsv_sum = 0
+    hsv_sum_1 = 0
+    hsv_sum_2 = 0
+    brightness_sum_1 = 0
+    brightness_sum_2 = 0 
+    last_part_1_time = datetime.now()  # use to avoid counting missing part 1 as a part 2
+
+
+    t1_old = datetime.now()
+
+    # check database exists and create if required
+    con = sqlite3.connect(config.db_name)
+    cur = con.cursor()
+    cur.execute(f"CREATE TABLE IF NOT EXISTS {config.db_table}(id INTEGER PRIMARY KEY, timestamp, track_cycle, part_1, part_2, ct, sent)")
+    con.close()
+
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    ave_sample_rate = 10
+     
+    
+    
     while(True):      
 
         cycle_start_time = time.time()
@@ -141,23 +193,7 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, client, signal
                 time.sleep(5)
                 frame_reader.start_frame_reader()
 
-                
-        # try:
-        #     for _ in range(2): # one fast loop to help clear buffer; reduces effective fps to 5 
-        #         ret, frame = cap.read()
-        #         height, width, channels = frame.shape
-
-        # except:
-        #     while True:  # loop forever to get camera feed
-        #         try:
-        #             time.sleep(5)
-        #             cap = cv2.VideoCapture(config.camera_url)
-        #             ret, frame = cap.read()
-        #             height, width, channels = frame.shape
-
-        #         except:
-        #             pass
-
+ 
         frame_org = frame.copy()
         frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY) 
 
@@ -316,48 +352,6 @@ if __name__ == '__main__':
     config = config_default()
     old_config_mtime, config = get_config(config_path, old_config_mtime, config)
 
-    client = initialise_mqtt()
-    client.loop_start()
-    client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'online', retain=True, qos = 2)
-
-    data_old = 0 # holder to trigger save of performance data when in setup mode
-
-    signal = deque([0]*10) # will be a 10 frame window
-    sample_rate = deque([0]*100,100) # average sample rate
-    ave_sample_rate = 10 # initial default value (driven, not driving)
-
-    # record raw data, juat use for debugging - initialise here
-    record_flow_x = []
-    record_flow_conv = []
-    record_hsv_1_mag = []
-    record_hsv_2_mag = []
-    ave_sample_rates = []
-    perf_record = [] # list of dicts to store processed results
-
-    # cutoff threshold for colour level
-    hsv_thresh = 10
-
-    conv_deque = deque([0]*5, 5) # conveyor velocity measured over 5 frames
-    box_deque = deque([0]*30, 30) # box velocity measured over 20 frames (so that box made flag is carried into database write)
-    time_toggle = 0
-    hsv_sum = 0
-    hsv_sum_1 = 0
-    hsv_sum_2 = 0
-    brightness_sum_1 = 0
-    brightness_sum_2 = 0 
-    last_part_1_time = datetime.now()  # use to avoid counting missing part 1 as a part 2
-
-
-    t1_old = datetime.now()
-
-    # check database exists and create if required
-    con = sqlite3.connect(config.db_name)
-    cur = con.cursor()
-    cur.execute(f"CREATE TABLE IF NOT EXISTS {config.db_table}(id INTEGER PRIMARY KEY, timestamp, track_cycle, part_1, part_2, ct, sent)")
-    con.close()
-
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    ave_sample_rate = 10
 
 
     # initialise frame reader 
@@ -365,35 +359,12 @@ if __name__ == '__main__':
     frame_reader.start_frame_reader()
     first_frame = frame_reader.get_frame()
 
-
-
-
-    # def initiate_camera_connection(camera_url):
-    #     cap = cv2.VideoCapture(camera_url) # 640x360 @ 10fps default stream fomr camera
-    #     cap.set(cv2.CAP_PROP_OPEN_TIMEOUT_MSEC, 5000) # timeout for opening
-    #     cap.set(cv2.CAP_PROP_READ_TIMEOUT_MSEC, 1000) # timeout for reading
-    #     if cap.get(cv2.CAP_PROP_BUFFERSIZE)>1:
-    #         cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-    #     while not cap.isOpened():
-    #         logging.warning("unable to connect to camera")
-    #         time.sleep(5)
-    #         cap = cv2.VideoCapture(camera_url) 
-    #     logging.info("camera connection established")
-    #     for _ in range(5):
-    #         ret, first_frame = cap.read() # capture first frame for optical flow
-    #         if ret:
-    #             return cap, first_frame
-    #     logging.error("failed to capture first frame")    
-    #     raise RuntimeError("failed to capture first image from camera")
-
-    # cap, first_frame = initiate_camera_connection(config.camera_url)
-
     prev_gray = cv2.cvtColor(first_frame, cv2.COLOR_BGR2GRAY)
 
     mask = np.zeros_like(first_frame)
     mask[..., 1] = 255
 
-    main(old_config_mtime, config, prev_gray, frame_reader, mask, client, signal, sample_rate, ave_sample_rate, record_flow_x, record_flow_conv, record_hsv_1_mag, record_hsv_2_mag, ave_sample_rates, perf_record, hsv_thresh, conv_deque, box_deque, time_toggle, hsv_sum, hsv_sum_1, hsv_sum_2, brightness_sum_1, brightness_sum_2, last_part_1_time, t1_old, font)
+    main(old_config_mtime, config, prev_gray, frame_reader, mask)
 
 
     #cap.release()
