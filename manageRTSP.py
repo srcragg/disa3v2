@@ -94,7 +94,8 @@ class FrameReader:
         finally:
             self.stop_frame_reader()
             cv2.destroyAllWindows()
-def main():
+
+if __name__ == "__main__":
     # Define the RTSP URL
     rtsp_url = 'rtsp://admin:ThomasDudley1920@10.0.3.171:554/Streaming/Channels/102/'
 
@@ -102,6 +103,4 @@ def main():
     frame_reader = FrameReader(rtsp_url)
     frame_reader.run()
 
-if __name__ == '__main__':
-    main()
     
