@@ -13,7 +13,7 @@ from yaml import CLoader as Loader
 from typing import Dict
 
 # %%
-config_path  = "../config.yaml"
+config_path  = "config.yaml"
 old_config_mtime = 0  # mtime is time file is modified
 
 @dataclass
@@ -78,7 +78,7 @@ def get_data_from_db(con, start_time, end_time = None):
     try:
         cur = con.cursor()
     except:
-        path = f"../{config.db_name}"
+        path = f"{config.db_name}"
         con = sqlite3.connect(path)
     if end_time == None:
         data = pd.read_sql(f'select * from counter where id > {start_time}', con)
@@ -92,7 +92,7 @@ def get_data_from_db(con, start_time, end_time = None):
 
 def process_data(data):
     try:
-        image = f'../images/{data['id'].max()}.jpg'
+        image = f'images/{data['id'].max()}.jpg'
     except:
         pass
     message = {}
@@ -133,7 +133,7 @@ running_toggle = 0
 old_total_cycles_shift = 0
 old_total_cycles = 0
 
-con = sqlite3.connect(f"../{config.db_name}")
+con = sqlite3.connect(f"{config.db_name}")
 
 
 # %%
