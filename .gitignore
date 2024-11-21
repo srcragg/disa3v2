@@ -5,3 +5,4 @@ disa3v1.db
 temp*
 __pycache__
 .venv
+*.xml

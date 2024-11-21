@@ -28,6 +28,10 @@ class config_default:
                     '4':[(4,30),(16,30)]}
     shift_times_converted = {}
     db_name: str = 'disa3.db'
+    mqtt_username: str = '' 
+    mqtt_password: str = ''
+    mqtt_host: str = ''
+    mqtt_port: int = 0
 
 
     
@@ -66,6 +70,10 @@ def get_config(config_path, old_config_mtime, config):
             config.shift_times = yaml_data['shift_times']
             config.db_name = yaml_data['db_name']
             old_config_mtime = mtime
+            config.mqtt_username = yaml_data['mqtt_username']
+            config.mqtt_password = yaml_data['mqtt_password']
+            config.mqtt_host = yaml_data['mqtt_host']
+            config.mqtt_port = yaml_data['mqtt_port']
         except:
             return old_config_mtime, config
     return old_config_mtime, config
@@ -108,14 +116,14 @@ def process_data(data):
 
 def start_mqtt():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_processor_to_mqtt_v1', clean_session = False)
-    client.username_pw_set(username = 'broker1', password='tdfcyclecounter')
+    client.username_pw_set(username = config.mqtt_username, password= config.mqtt_password)
     client.will_set(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', 'offline', retain=True, qos = 2)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
-    client.connect('10.0.1.207', 1883, 60)
+    client.connect(config.mqtt_host, config.mqtt_port, 60)
     client.loop_start()
     return client
 
-def on_disconnect(client, userdata, rc):
+def on_disconnect(client, userdata, rc, properties=None):
     if rc != 0:
         logging.error("Unexpected disconnection.")
         client.loop_stop()

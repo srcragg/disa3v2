@@ -58,7 +58,7 @@ class config_default:
     lr_bound_hsv_2: list[int] =  field(default_factory= lambda: [240,270])
     db_name: str =  "disa3.db"
     db_table: str =  "counts"
-    camera_url: str =  "rtsp://admin:ThomasDudley1920@10.0.3.171:554/Streaming/Channels/102/"
+    camera_url: str =  None
     ul_bound_converyor: list[int] =  field(default_factory= lambda:  [600, 340])
     lr_bound_conveyor: list[int] =  field(default_factory= lambda:  [630, 360])
     ul_bound_flow: list[int] =  field(default_factory= lambda:  [90, 180])
@@ -66,7 +66,12 @@ class config_default:
     brightness_thresh: int  = 245
     cell_name: str = "disa3"
     device_name: str = "optical_counter"
+    mqtt_username: str = ""
+    mqtt_password: str = ""
+    mqtt_host: str = ""
+    mqtt_port: int = 1883
     image_dir_cleanup: bool  = False
+
 
 
 def hsv_segmentation(frame, HSLlower, HSLupper):
@@ -115,14 +120,14 @@ def image_directory_cleanup():
 
 def initialise_mqtt():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_{config.device_name}_v1', clean_session = False)
-    client.username_pw_set(username = 'broker1', password='tdfcyclecounter')
+    client.username_pw_set(username = config.mqtt_username, password= config.mqtt_password)
     client.will_set(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'offline', retain=True, qos = 2)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
-    client.connect('10.0.1.207', 1883, 60)
+    client.connect(config.mqtt_host, config.mqtt_port, 60)
     client.loop_start()
     return client
 
-def on_disconnect(client, userdata, rc):
+def on_disconnect(client, userdata, rc, properties=None):
     if rc != 0:
         logging.error("Unexpected disconnection.")
         client.loop_stop()
