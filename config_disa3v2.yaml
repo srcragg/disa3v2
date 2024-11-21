@@ -1,0 +1,68 @@
+---
+## Page 1 - Camera as sensor
+
+ setup_mode: False
+ video: True
+ stop_running: False
+
+
+# segmenting by colour
+# manual pour
+ #HSLlower_man: [136, 62, 114] 
+ #HSLupper_man: [179, 189, 243]
+ HSLlower_1: [132, 10, 255] 
+ HSLupper_1: [179, 36, 255]
+
+
+ ul_bound_hsv: [15,350]
+ lr_bound_hsv: [30,435]
+
+# auto pour
+ #HSLlower: [13, 23, 244]
+ #HSLupper: [35, 255, 255]
+ HSLlower: [146, 0, 170]
+ HSLupper: [157, 95, 255]
+#  HSLlower: [1, 2, 234]
+#  HSLupper: [79, 255, 255]
+ ul_bound_hsv_2: [540,65]
+ lr_bound_hsv_2: [550,115]
+#  ul_bound_hsv_2: [340,200]
+#  lr_bound_hsv_2: [430,240]
+
+# sqlite database - set & change whilst program is stopped 
+ db_name: "disa3v1.db"
+ db_table: counter
+
+# video capture address
+ camera_url: "rtsp://admin:ThomasDudley1920@10.0.3.171:554/Streaming/Channels/102/"
+
+# conveyor indexing location (optical flow)
+ ul_bound_converyor:  [330,280]  # was (540, 300)
+ lr_bound_conveyor:  [370,310]
+
+# box indexing location (optical flow)
+ ul_bound_flow:  [60,320]
+ lr_bound_flow:  [120,350]
+
+# Image brightness cutoff
+ brightness_thresh: 245 
+
+ cell_name: "disa3_dev"
+ device_name: "optical_counter_dev"
+...
+---
+
+## page 2 - disa processor to mqtt
+
+ stop_running: False
+ cell_name: "disa3_dev"
+ db_name: "disa3v1.db"
+ port: 8705
+ shift_times:
+  '0': [[4,30],[17,0]]
+  '1': [[4,30],[17,0]]
+  '2': [[4,30],[17,0]]
+  '3': [[4,30],[17,0]]
+  '4': [[4,30],[16,30]]
+  '5': [[4,30],[4,30]]
+  '6': [[4,30],[4,30]]
