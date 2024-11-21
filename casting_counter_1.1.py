@@ -72,8 +72,6 @@ class config_default:
 def hsv_segmentation(frame, HSLlower, HSLupper):
     HSLlower = np.array(HSLlower, int)
     HSLupper = np.array(HSLupper, int)
-    # HSLlower = np.array([136, 62, 114], int)
-    # HSLupper = np.array([179, 189, 243], int)
     hsv = cv2.cvtColor(frame, cv2.COLOR_BGR2HSV)
     #create a mask for  colour using inRange function
     mask = cv2.inRange(hsv, HSLlower, HSLupper)
@@ -121,16 +119,28 @@ def initialise_mqtt():
     client.will_set(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'offline', retain=True, qos = 2)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
     client.connect('10.0.1.207', 1883, 60)
+    client.loop_start()
     return client
 
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        logging.error("Unexpected disconnection.")
+        client.loop_stop()
+        time.sleep(5)
 
 def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = "config.yaml"):
 
-    client = initialise_mqtt()
-    client.loop_start()
     current_time = datetime.now()
-    message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
-    client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
+    try:  # try to initialise mqtt client. If this fails, the script will continue to run without mqtt and retry to connect every 5 seconds in loop
+        client = initialise_mqtt()
+        client.on_disconnect = on_disconnect
+
+        message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+        client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
+    except:
+        logging.error("MQTT client failed to initialise at startup")
+        pass
+
 
     data_old = 0 # holder to trigger save of performance data when in setup mode
 
@@ -174,6 +184,25 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = 
     
     
     while(True):      
+
+
+
+        if not client.is_connected() or not client:
+            try:
+                client.loop_stop()
+                client.disconnect()
+                logging.error("MQTT client disconnected")
+            except Exception as e:
+                logging.error(f"Error stopping or disconnecting MQTT client: {e}")
+                pass
+            try:
+                client = initialise_mqtt()
+                client.on_disconnect = on_disconnect
+                message = {'status': 'online', 'timestamp': current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+                client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos=2)
+            except Exception as e:
+                logging.error(f"MQTT client reconnect failed: {e}")
+                pass
 
         cycle_start_time = time.time()
         old_config_mtime, config = get_config(config_path, old_config_mtime, config)
@@ -282,7 +311,9 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = 
             con.close()
             message = {'id' : id, 'timestamp' : t1.timestamp(), 'cycle_length' : cycle_length.total_seconds(), 
                     'part_1' : made_part_1, 'part2' : made_part_2, 'ct'  : ct.total_seconds(), 'box'  : made_box}
-            client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/cycle_data",json.dumps(message))
+            
+            if client.is_connected():
+                client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/cycle_data",json.dumps(message))
     
         ## Add variables to debug lists
         if config.setup_mode == True:
@@ -337,7 +368,7 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = 
 if __name__ == '__main__':
 
     ## set up logging
-    logging.basicConfig(filename='app.log', 
+    logging.basicConfig(filename='app_counter.log', 
                         level=logging.DEBUG, 
                         format='%(asctime)s - %(levelname)s - %(message)s',
                         filemode='a')

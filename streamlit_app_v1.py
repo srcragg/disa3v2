@@ -82,7 +82,7 @@ while True:
     data['running'] = ( data['timestamp']-data['timestamp'].shift(1)).dt.total_seconds()<45
     data['ct2'] = data['timestamp'].diff(1).dt.total_seconds().fillna(0)
     data = data[data['ct2']>7]
-    data = data[data['track_cycle']<7]
+    data = data[data['track_cycle']<10]
     total_cycles_shift = data['ct'].count()
 
 
@@ -100,7 +100,10 @@ while True:
     ave_cycle_last_10 = data['ct'][-10:].mean()
 
     time_first_cycle = data['timestamp'].min()
-    time_fist_box = data[data['sent']==1].iloc[0,:]['timestamp'] 
+    try:
+        time_fist_box = data[data['sent']==1].iloc[0,:]['timestamp'] 
+    except:
+        time_fist_box = None
 
 
     times_state = (data[data['part_1']==1].empty, data[data['part_2']==1].empty)
@@ -146,8 +149,6 @@ while True:
                 running_toggle = 0
                 message = json.dumps({'timestamp':current_time.timestamp(),'running':'false'})
             # client.publish("tdg/tdf/disa3/cycle_counter/running", message, retain=True, qos=2)
-        
-
     else:
         status_holder.markdown('# :green[RUNNING]')
         if running_toggle == 0: 

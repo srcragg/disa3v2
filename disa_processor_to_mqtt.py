@@ -11,10 +11,10 @@ import os
 import yaml
 from yaml import CLoader as Loader
 from typing import Dict
+import logging
 
 # %%
-config_path  = "config.yaml"
-old_config_mtime = 0  # mtime is time file is modified
+
 
 @dataclass
 class config_default:
@@ -71,9 +71,6 @@ def get_config(config_path, old_config_mtime, config):
     return old_config_mtime, config
 
 
-
-
-
 def get_data_from_db(con, start_time, end_time = None):
     try:
         cur = con.cursor()
@@ -107,109 +104,170 @@ def process_data(data):
 
     return message
 
-
-
-
-
-
-config = config_default()
-old_config_mtime, config = get_config(config_path, old_config_mtime, config)
-config.convert_shift_time()
 # %%
-client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_processor_to_mqtt_v1', clean_session = False)
-client.username_pw_set(username = 'broker1', password='tdfcyclecounter')
-client.will_set(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', 'offline', retain=True, qos = 2)
-client.reconnect_delay_set(min_delay=1, max_delay=120)
-client.connect('10.0.1.207', 1883, 60)
-client.loop_start()
 
+def start_mqtt():
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_processor_to_mqtt_v1', clean_session = False)
+    client.username_pw_set(username = 'broker1', password='tdfcyclecounter')
+    client.will_set(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', 'offline', retain=True, qos = 2)
+    client.reconnect_delay_set(min_delay=1, max_delay=120)
+    client.connect('10.0.1.207', 1883, 60)
+    client.loop_start()
+    return client
 
-current_time = datetime.datetime.now()
-message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
-client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
-
-
-running_toggle = 0
-old_total_cycles_shift = 0
-old_total_cycles = 0
-
-con = sqlite3.connect(f"{config.db_name}")
+def on_disconnect(client, userdata, rc):
+    if rc != 0:
+        logging.error("Unexpected disconnection.")
+        client.loop_stop()
+        time.sleep(5)
 
 
 # %%
+def main(config, config_path, old_config_mtime):
 
-while True:
-    #c+=1
+
+
     old_config_mtime, config = get_config(config_path, old_config_mtime, config)
     config.convert_shift_time()
     current_time = datetime.datetime.now()
-    target_date = datetime.datetime(year = current_time.year,
-                                      month = current_time.month,
-                                      day = current_time.day,
-                                      hour = 4,
-                                      minute = 0).timestamp()
 
-    shift_start_time = config.shift_times_converted[str(current_time.weekday())][0].timestamp()
-    shift_end_time = config.shift_times_converted[str(current_time.weekday())][1].timestamp()
+    try:
+        client = start_mqtt()
+        client.on_disconnect = on_disconnect
+        message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+        client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
+    except Exception as e:
+        logging.error(f"Error starting MQTT client: {e}")
+        pass
 
+    running_toggle = 0
+    old_total_cycles_shift = 0
+    old_total_cycles = 0
 
-# running data since 04:00
-    data = get_data_from_db(con, target_date)
-    total_cycles = len(data)
-    if len(data) <10: # check if data is present and sufficient
-        time.sleep(10)
-        continue
+    con = sqlite3.connect(f"{config.db_name}")
 
-    processed_data = process_data(data)
-    if total_cycles != old_total_cycles:
-        message_to_send = {k:v for k, v in processed_data.items()}
-        message_to_send['timestamp'] = current_time.timestamp()
-        client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/daily_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
-        old_total_cycles = total_cycles
+    while True:
 
- 
-    if processed_data['time_on_hold']>=45:
-        #status_holder.markdown('# :red[NOT RUNNING]')
-        if running_toggle == 1:
-            running_toggle = 0
-            message = json.dumps({'timestamp':current_time.timestamp(),'running':'false', 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
-            client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
-
-    else:
-        #status_holder.markdown('# :green[RUNNING]')
-        if running_toggle == 0: 
-            running_toggle = 1
-            message = json.dumps({'timestamp':current_time.timestamp(),'running':'true','timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
-            client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
+        if not client.is_connected() or not client:
+            try:
+                client.loop_stop()
+                client.disconnect()
+                logging.error("MQTT client disconnected")
+            except Exception as e:
+                logging.error(f"Error stopping or disconnecting MQTT client: {e}")
+                pass
+            try:
+                client = start_mqtt()
+                message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
+                client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
+            except Exception as e:
+                logging.error(f"Error starting MQTT client: {e}")
+                pass
 
 
+        old_config_mtime, config = get_config(config_path, old_config_mtime, config)
+        config.convert_shift_time()
+        current_time = datetime.datetime.now()
+        target_date = datetime.datetime(year = current_time.year,
+                                        month = current_time.month,
+                                        day = current_time.day,
+                                        hour = 4,
+                                        minute = 0).timestamp()
 
-# running data within normal shift times
+        shift_start_time = config.shift_times_converted[str(current_time.weekday())][0].timestamp()
+        shift_end_time = config.shift_times_converted[str(current_time.weekday())][1].timestamp()
+
+
+    # running data since 04:00
+        data = get_data_from_db(con, target_date)
+        total_cycles = len(data)
+        if len(data) <10: # check if data is present and sufficient
+            time.sleep(10)
+            continue
+
+        processed_data = process_data(data)
+        if total_cycles != old_total_cycles:
+            message_to_send = {k:v for k, v in processed_data.items()}
+            message_to_send['timestamp'] = current_time.timestamp()
+            if client.is_connected():
+                client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/daily_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
+            old_total_cycles = total_cycles
+
     
-    data_shift = get_data_from_db(con, shift_start_time, shift_end_time)
-    total_cycles_shift = len(data_shift)
-    if len(data_shift) <10: # check if data is present and sufficient
-        time.sleep(10)
-        continue
+        if processed_data['time_on_hold']>=45:
+            #status_holder.markdown('# :red[NOT RUNNING]')
+            if running_toggle == 1:
+                running_toggle = 0
+                message = json.dumps({'timestamp':current_time.timestamp(),'running':'false', 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
+                if client.is_connected():
+                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
 
-    processed_shift_data = process_data(data_shift)
+        else:
+            #status_holder.markdown('# :green[RUNNING]')
+            if running_toggle == 0: 
+                running_toggle = 1
+                message = json.dumps({'timestamp':current_time.timestamp(),'running':'true','timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
+                if client.is_connected():
+                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
 
-    if total_cycles_shift != old_total_cycles_shift:
-        message_to_send = {k:v for k, v in processed_shift_data.items()}
-        message_to_send["shift_start_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].strftime('%d-%m-%y %H:%M:%S'),
-        message_to_send["shift_end_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].strftime('%d-%m-%y %H:%M:%S'),
-        message_to_send["shift_start"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].timestamp(),
-        message_to_send["shift_end"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].timestamp(),
-        message_to_send['timestamp'] = current_time.timestamp()
-        message_to_send['timestamp_human'] =  current_time.strftime("%d-%m-%y %H:%M:%S")
-        client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/shift_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
-        old_total_cycles_shift = total_cycles_shift
- 
 
-    time.sleep(1)
 
-    if config.stop_running == True:
-        break
+    # running data within normal shift times
+        
+        data_shift = get_data_from_db(con, shift_start_time, shift_end_time)
+        total_cycles_shift = len(data_shift)
+        if len(data_shift) <10: # check if data is present and sufficient
+            time.sleep(10)
+            continue
 
+        try:
+            image = f'images/{data['id'].max()}.jpg'
+            with open(image, 'rb') as file:
+                image_file = file.read()
+        except:
+            image_file = 'None'
+            pass
+
+        processed_shift_data = process_data(data_shift)
+
+        if total_cycles_shift != old_total_cycles_shift:
+            message_to_send = {k:v for k, v in processed_shift_data.items()}
+            message_to_send["shift_start_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].strftime('%d-%m-%y %H:%M:%S'),
+            message_to_send["shift_end_human"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].strftime('%d-%m-%y %H:%M:%S'),
+            message_to_send["shift_start"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][0].timestamp(),
+            message_to_send["shift_end"] = config.shift_times_converted[str(datetime.datetime.now().weekday())][1].timestamp(),
+            message_to_send['timestamp'] = current_time.timestamp()
+            message_to_send['timestamp_human'] =  current_time.strftime("%d-%m-%y %H:%M:%S")
+            if client.is_connected():
+                client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/shift_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
+            old_total_cycles_shift = total_cycles_shift
+
+            if image:
+                #byteArr = bytearray(image_file)
+                message_to_send = {'image':'none', 'timestamp':current_time.timestamp()}
+                if client.is_connected():
+                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/cycle_image", json.dumps(message_to_send), retain=True, qos=2)
+    
+
+        time.sleep(1)
+
+        if config.stop_running == True:
+            break
+
+if __name__ == '__main__':
+
+    ## set up logging
+    logging.basicConfig(filename='app_processor.log', 
+                        level=logging.DEBUG, 
+                        format='%(asctime)s - %(levelname)s - %(message)s',
+                        filemode='a')
+    logging.debug('log started')
+
+    config_path  = "config.yaml"
+    old_config_mtime = 0  # mtime is time file is modified
+
+    config = config_default()
+    
+    main(config, config_path, old_config_mtime)
 
 # %%
