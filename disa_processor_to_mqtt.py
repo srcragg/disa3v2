@@ -32,6 +32,7 @@ class config_default:
     mqtt_password: str = ''
     mqtt_host: str = ''
     mqtt_port: int = 0
+    device_name: str =  "count_processor_dev"
 
 
     
@@ -74,6 +75,7 @@ def get_config(config_path, old_config_mtime, config):
             config.mqtt_password = yaml_data['mqtt_password']
             config.mqtt_host = yaml_data['mqtt_host']
             config.mqtt_port = yaml_data['mqtt_port']
+            config.device_name = yaml_data['device_name']
         except:
             return old_config_mtime, config
     return old_config_mtime, config
@@ -117,7 +119,7 @@ def process_data(data):
 def start_mqtt():
     client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_processor_to_mqtt_v1', clean_session = False)
     client.username_pw_set(username = config.mqtt_username, password= config.mqtt_password)
-    client.will_set(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', 'offline', retain=True, qos = 2)
+    client.will_set(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'offline', retain=True, qos = 2)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
     client.connect(config.mqtt_host, config.mqtt_port, 60)
     client.loop_start()
@@ -143,7 +145,7 @@ def main(config, config_path, old_config_mtime):
         client = start_mqtt()
         client.on_disconnect = on_disconnect
         message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
-        client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
+        client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
     except Exception as e:
         logging.error(f"Error starting MQTT client: {e}")
         pass
@@ -167,7 +169,7 @@ def main(config, config_path, old_config_mtime):
             try:
                 client = start_mqtt()
                 message = {'status':'online', 'timestamp':current_time.timestamp(), 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")}
-                client.publish(f'tdg/tdf/{config.cell_name}/cycle_counterv2/status', json.dumps(message), retain=True, qos = 2)
+                client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
             except Exception as e:
                 logging.error(f"Error starting MQTT client: {e}")
                 pass
@@ -198,7 +200,7 @@ def main(config, config_path, old_config_mtime):
             message_to_send = {k:v for k, v in processed_data.items()}
             message_to_send['timestamp'] = current_time.timestamp()
             if client.is_connected():
-                client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/daily_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
+                client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/daily_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
             old_total_cycles = total_cycles
 
     
@@ -208,7 +210,7 @@ def main(config, config_path, old_config_mtime):
                 running_toggle = 0
                 message = json.dumps({'timestamp':current_time.timestamp(),'running':'false', 'timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
                 if client.is_connected():
-                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
+                    client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/running", message, retain=True, qos=2)
 
         else:
             #status_holder.markdown('# :green[RUNNING]')
@@ -216,7 +218,7 @@ def main(config, config_path, old_config_mtime):
                 running_toggle = 1
                 message = json.dumps({'timestamp':current_time.timestamp(),'running':'true','timestamp_human': current_time.strftime("%d-%m-%y %H:%M:%S")})
                 if client.is_connected():
-                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/running", message, retain=True, qos=2)
+                    client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/running", message, retain=True, qos=2)
 
 
 
@@ -247,14 +249,14 @@ def main(config, config_path, old_config_mtime):
             message_to_send['timestamp'] = current_time.timestamp()
             message_to_send['timestamp_human'] =  current_time.strftime("%d-%m-%y %H:%M:%S")
             if client.is_connected():
-                client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/shift_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
+                client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/shift_cycle_data", json.dumps(message_to_send), retain=True, qos=2)
             old_total_cycles_shift = total_cycles_shift
 
             if image:
                 #byteArr = bytearray(image_file)
                 message_to_send = {'image':'none', 'timestamp':current_time.timestamp()}
                 if client.is_connected():
-                    client.publish(f"tdg/tdf/{config.cell_name}/cycle_counterv2/cycle_image", json.dumps(message_to_send), retain=True, qos=2)
+                    client.publish(f"tdg/tdf/{config.cell_name}/{config.device_name}/cycle_image", json.dumps(message_to_send), retain=True, qos=2)
     
 
         time.sleep(1)
