@@ -6,7 +6,9 @@ size = 0
 max_size = 1200000000
 min_size = 1000000000
 
-path = r"C:/Users/Steve Cragg/Documents/disa3v2/images"
+cwd = os.getcwd()
+path = os.path.join(cwd, "images")
+
 for path, dirs, files in os.walk(path):
     for f in files:
         fp = os.path.join(path, f)
