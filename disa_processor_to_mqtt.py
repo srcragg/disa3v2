@@ -12,6 +12,7 @@ import yaml
 from yaml import CLoader as Loader
 from typing import Dict
 import logging
+import pytz
 
 # %%
 
@@ -93,6 +94,10 @@ def get_data_from_db(con, start_time, end_time = None):
         data = pd.read_sql(f'select * from counter where id > {start_time} and id < {end_time}', con)
     data['timestamp'] = pd.to_datetime(data['timestamp'], unit = 's')
     data['running'] = ( data['timestamp']-data['timestamp'].shift(1)).dt.total_seconds()<45
+    data['ct2'] = data['timestamp'].diff(1).dt.total_seconds().fillna(0)
+    data = data[data['ct2']>7]
+    data = data[data['track_cycle']<10]
+    total_cycles_shift = data['ct'].count()
 
     return data
  
@@ -109,7 +114,7 @@ def process_data(data):
     message['total_1_parts_cast'] = data['part_1'].sum()+0.01 
     message['total_2_parts_cast'] = data['part_2'].sum()+0.01 
     message['total_cycles'] = len(data)
-    message['time_on_hold'] = (datetime.datetime.now() - data['timestamp'].max()).seconds -3600
+    message['time_on_hold'] = (datetime.datetime.now() - data['timestamp'].max()).seconds
     message['ave_cycle_last_10'] = data['ct'][-10:].mean()
 
     return message
@@ -139,7 +144,8 @@ def main(config, config_path, old_config_mtime):
 
     old_config_mtime, config = get_config(config_path, old_config_mtime, config)
     config.convert_shift_time()
-    current_time = datetime.datetime.now()
+    lon = pytz.timezone("Europe/London")
+    current_time = datetime.datetime.now(lon)
 
     try:
         client = start_mqtt()
@@ -177,7 +183,7 @@ def main(config, config_path, old_config_mtime):
 
         old_config_mtime, config = get_config(config_path, old_config_mtime, config)
         config.convert_shift_time()
-        current_time = datetime.datetime.now()
+        current_time = datetime.datetime.now(lon)
         target_date = datetime.datetime(year = current_time.year,
                                         month = current_time.month,
                                         day = current_time.day,

@@ -119,7 +119,7 @@ def image_directory_cleanup():
             pass
 
 def initialise_mqtt():
-    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_{config.device_name}_v1', clean_session = False)
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2, f'{config.cell_name}_{config.device_name}_v1.1', clean_session = False)
     client.username_pw_set(username = config.mqtt_username, password= config.mqtt_password)
     client.will_set(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', 'offline', retain=True, qos = 2)
     client.reconnect_delay_set(min_delay=1, max_delay=120)
@@ -144,6 +144,7 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = 
         client.publish(f'tdg/tdf/{config.cell_name}/{config.device_name}/status', json.dumps(message), retain=True, qos = 2)
     except:
         logging.error("MQTT client failed to initialise at startup")
+        client = None
         pass
 
 
@@ -190,9 +191,8 @@ def main(old_config_mtime, config, prev_gray, frame_reader, mask, config_path = 
     
     while(True):      
 
-
-
-        if not client.is_connected() or not client:
+        
+        if not client.is_connected():
             try:
                 client.loop_stop()
                 client.disconnect()

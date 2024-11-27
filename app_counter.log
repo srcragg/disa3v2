@@ -1,2 +1,39 @@
 
 2024-11-21 11:44:03,470 - DEBUG - log started
+2024-11-25 08:25:03,881 - DEBUG - log started
+2024-11-25 08:25:08,280 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-25 08:49:32,623 - DEBUG - log started
+2024-11-25 08:49:36,410 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-25 15:52:19,038 - DEBUG - log started
+2024-11-25 15:52:22,888 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-25 15:54:45,941 - DEBUG - log started
+2024-11-25 15:54:49,903 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-25 16:17:00,928 - DEBUG - log started
+2024-11-25 16:17:04,703 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:17:53,879 - DEBUG - log started
+2024-11-25 16:17:57,589 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:19:22,216 - DEBUG - log started
+2024-11-25 16:19:26,169 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:20:57,124 - DEBUG - log started
+2024-11-25 16:21:00,843 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:21:58,017 - DEBUG - log started
+2024-11-25 16:22:02,485 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:26:10,961 - DEBUG - log started
+2024-11-25 16:26:14,728 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:29:50,680 - DEBUG - log started
+2024-11-25 16:29:54,401 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:31:48,106 - DEBUG - log started
+2024-11-25 16:31:51,936 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:32:51,408 - DEBUG - log started
+2024-11-25 16:32:55,301 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:39:29,309 - DEBUG - log started
+2024-11-25 16:39:33,074 - ERROR - MQTT client failed to initialise at startup
+2024-11-25 16:41:40,297 - DEBUG - log started
+2024-11-25 16:41:44,430 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-25 16:44:58,464 - DEBUG - log started
+2024-11-25 16:45:02,423 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-26 08:24:48,096 - DEBUG - log started
+2024-11-26 08:24:51,606 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-27 08:01:34,859 - DEBUG - log started
+2024-11-27 08:43:18,512 - DEBUG - log started
+2024-11-27 08:43:21,763 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given

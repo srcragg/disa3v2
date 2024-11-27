@@ -3,3 +3,6 @@
 2024-11-21 11:48:28,776 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes 3 positional arguments but 5 were given
 2024-11-21 11:49:57,483 - DEBUG - log started
 2024-11-21 11:49:57,527 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
+2024-11-27 08:01:16,963 - DEBUG - log started
+2024-11-27 08:43:27,364 - DEBUG - log started
+2024-11-27 08:43:27,536 - ERROR - Error stopping or disconnecting MQTT client: on_disconnect() takes from 3 to 4 positional arguments but 5 were given
